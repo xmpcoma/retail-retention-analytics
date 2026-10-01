@@ -1,0 +1,27 @@
+[project]
+name = "retail-retention-analytics"
+version = "0.1.0"
+description = "Разбор удержания клиентов интернет-магазина: очистка, SQL-витрины и дашборд"
+requires-python = ">=3.10"
+dependencies = [
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "duckdb>=1.1",
+    "pyarrow>=17",
+    "openpyxl>=3.1",
+    "plotly>=5.24",
+    "streamlit>=1.40",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "jupyter>=1.1", "nbconvert>=7.16"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
