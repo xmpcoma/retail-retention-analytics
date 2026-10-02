@@ -190,12 +190,16 @@ with tab_overview:
     c1, c2 = st.columns([1, 1])
     with c1:
         country = m.country_rollup(view).nlargest(10, "revenue")
-        fig4 = px.bar(country, x="revenue", y="country",
-                      labels={"revenue": "Выручка, £", "country": ""},
+        # Шкала подписана процентами, значит и красим мы в процентах: с долями
+        # 0..1 легенда врёт в два раза.
+        fig4 = px.bar(country.assign(repeat_rate=lambda d: d.repeat_rate * 100),
+                      x="revenue", y="country",
+                      labels={"revenue": "Выручка, £", "country": "",
+                              "repeat_rate": "Повторные, %"},
                       color="repeat_rate", color_continuous_scale="Blues_r")
         fig4.update_layout(height=360, margin=dict(t=10, b=10), yaxis=dict(autorange="reversed"))
         st.plotly_chart(fig4, width="stretch")
-        note("Цвет — доля клиентов, купивших более одного раза.")
+        note("Цвет — сколько клиентов в стране купили более одного раза, в процентах.")
     with c2:
         st.dataframe(
             country.assign(revenue_share=lambda d: (d.revenue_share * 100).round(1),
@@ -210,7 +214,7 @@ with tab_overview:
 
     st.subheader("Рынки: Великобритания против экспорта")
     reg = m.region_monthly(view)
-    left, right = st.columns([2, 1])
+    left, right = st.columns([3, 2])
     with left:
         fig_regions = px.line(
             reg, x="month", y="revenue", facet_col="region", facet_col_wrap=2,
@@ -219,21 +223,22 @@ with tab_overview:
         )
         fig_regions.update_yaxes(matches=None, showticklabels=True)
         fig_regions.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
-        fig_regions.update_layout(height=360, margin=dict(t=10, b=10))
+        # Две строки фасетов в 360 px: подписи столбцов залезают на графики.
+        fig_regions.update_layout(height=430, margin=dict(t=42, b=10))
         st.plotly_chart(fig_regions, width="stretch")
     with right:
         totals = (
             reg.groupby("region", observed=True)
-            .agg(revenue=("revenue", "sum"), orders=("orders", "sum"))
+            .agg(revenue=("revenue", "sum"))
             .sort_values("revenue", ascending=False)
             .assign(revenue_share=lambda d: d.revenue / d.revenue.sum())
-            .rename(columns={"revenue": "Выручка £", "orders": "Заказы",
-                             "revenue_share": "Доля выручки"})
+            .rename(columns={"revenue": "Выручка £", "revenue_share": "Доля выручки"})
+            .reset_index()
         )
         st.dataframe(
-            totals[["Выручка £", "Доля выручки", "Заказы"]]
+            totals[["region", "Выручка £", "Доля выручки"]]
             .style.format({"Выручка £": "{:,.0f}", "Доля выручки": "{:.1%}"}),
-            width="stretch",
+            width="stretch", hide_index=True,
         )
     note("Великобритания — 85,5% выручки, экспорт в Европе и на Ближнем Востоке — 13,0%, прочие "
          "страны — 1,4%. В 2011-м британская выручка стоит на месте (−0,5%) при заказах −10,6%: "
