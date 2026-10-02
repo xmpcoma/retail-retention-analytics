@@ -1,5 +1,7 @@
 # Удержание клиентов: разбор Online Retail II
 
+![tests](https://github.com/xmpcoma/retail-retention-analytics/actions/workflows/tests.yml/badge.svg)
+
 В выгрузке оптового интернет-магазина мелочью для дома два года работы: с 01.12.2009 по
 09.12.2011 и 1 033 017 строк после очистки. Выручка 2011 года почти совпала с 2010-м (£9,47 млн
 против £9,38 млн), но собрана другим способом: заказов на 8,5% меньше, впервые купивших — в 2,2
@@ -12,8 +14,9 @@
 > **In short.** A retention analysis of the UCI *Online Retail II* dataset (1.03M rows,
 > Dec 2009 – Dec 2011): cleaning log, 16 DuckDB marts, a Streamlit + Plotly dashboard, two
 > notebooks. SQL and pandas compute the same numbers two different ways, and a test suite fails
-> if they ever diverge. Revenue in 2011 is flat year-over-year while new customers fell by 54% —
-> the dashboard shows what holds the business up and for how long.
+> if they ever diverge. CI runs the suite on a clean machine. Revenue in 2011 is flat
+> year-over-year while new customers fell by 54% — the dashboard shows what holds the business
+> up and for how long.
 
 ## Что видно из данных
 
@@ -35,6 +38,11 @@
 - **Медианный интервал между покупками — 25 дней, P75 — 62.** 55% интервалов укладываются в
   месяц, дольше полугода живут только 6,4%. Рабочий цикл покупателя здесь около месяца.
 - **Половину оборота дают 258 клиентов из 5 853 (4,4%), 80% — 1 353 (23%).**
+- **Выручку 2011 года держит чек внутри Великобритании, а не экспорт.** Великобритания — 85,5%
+  оборота, экспорт в Европе и на Ближнем Востоке — 13,0%, прочие страны — 1,4%. По британской
+  выручке 2011-й −0,5% при заказах −10,6% (средний чек £421 → £469); экспорт принял +19% заказов
+  при той же выручке (чек £894 → £756), то есть пришли мелкие покупатели. Рост «прочих стран» в
+  2,7 раза — это три австралийских инвойса на £61,4 тыс., 31% группы.
 - **RFM-сегменты:** ядро — 21,5% клиентов и 67,9% выручки (£9 205 среднего вклада, 17 заказов);
   отток — треть клиентов и 4,7% выручки (£415 на человека). Возвращать отток рассылкой
   нечем, работать надо с «остывают» (742 клиента, £1,96 млн, 106 дней тишины) и «дорогим
@@ -69,26 +77,30 @@ python -m retail_analytics.prepare # скачает архив UCI (45 МБ) и 
 python -m retail_analytics.marts   # прогонит sql/ через DuckDB, разложит витрины по parquet
 streamlit run dashboard/app.py
 
-pytest -q                          # 31 тест
+pytest -q                          # 41 тест
+pytest -q -m "not slow"            # 33 из них без пересборки витрин и дашборда
 ```
 
 `data/curated/` с фактом и витринами лежит в репозитории, поэтому дашборд стартует и без первых
 двух команд. `prepare` повторно не скачивает файл, если он уже в `data/raw/`; чтобы заставить —
-`--force-download`.
+`--force-download`. Пересборка витрин детерминирована: у каждой финальной таблицы в `sql/` есть
+`ORDER BY` с уникальным ключом, а тест `test_marts_reproducible` сверяет байты заново собранных
+parquet с теми, что лежат в git.
 
 ## Структура
 
 ```
 dashboard/app.py        Streamlit: пять вкладок, фильтры, подписи с цифрами
 src/retail_analytics/
-  config.py             URL источника, коды нетоварных позиций, ключ дедупликации
+  config.py             URL источника, коды нетоварных позиций, группы стран, ключ дедупликации
   prepare.py            выгрузка → fact_transactions.parquet + журнал чистки
   metrics.py            те же метрики на pandas: выручка, когорты, RFM-интервалы, концентрация
   marts.py              прогон sql/ в DuckDB и раскладка витрин по parquet
 sql/01…08_*.sql         база и вьюхи, месячные KPI, когорты, RFM, страны, товары, отмены, нетоварные
 notebooks/01_…          журнал чистки с проверками и находками
 notebooks/02_…          удержание: когорты, интервалы, сегменты, концентрация
-tests/                  метрики на фикстуре + сверка витрин с pandas
+tests/                  метрики на фикстуре, сверка витрин с pandas, сборка app.py, пересборка parquet
+.github/workflows/      ci: pytest на чистой ubuntu без data/raw
 data/curated/           факт (7,7 МБ) и 16 витрин (0,3 МБ)
 ```
 
