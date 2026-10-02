@@ -208,6 +208,40 @@ with tab_overview:
             width="stretch", hide_index=True,
         )
 
+    st.subheader("Рынки: Великобритания против экспорта")
+    reg = m.region_monthly(view)
+    left, right = st.columns([2, 1])
+    with left:
+        fig_regions = px.line(
+            reg, x="month", y="revenue", facet_col="region", facet_col_wrap=2,
+            labels={"revenue": "Выручка, £", "month": "", "region": ""},
+            color_discrete_sequence=[PALETTE[0]],
+        )
+        fig_regions.update_yaxes(matches=None, showticklabels=True)
+        fig_regions.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+        fig_regions.update_layout(height=360, margin=dict(t=10, b=10))
+        st.plotly_chart(fig_regions, width="stretch")
+    with right:
+        totals = (
+            reg.groupby("region", observed=True)
+            .agg(revenue=("revenue", "sum"), orders=("orders", "sum"))
+            .sort_values("revenue", ascending=False)
+            .assign(revenue_share=lambda d: d.revenue / d.revenue.sum())
+            .rename(columns={"revenue": "Выручка £", "orders": "Заказы",
+                             "revenue_share": "Доля выручки"})
+        )
+        st.dataframe(
+            totals[["Выручка £", "Доля выручки", "Заказы"]]
+            .style.format({"Выручка £": "{:,.0f}", "Доля выручки": "{:.1%}"}),
+            width="stretch",
+        )
+    note("Великобритания — 85,5% выручки, экспорт в Европе и на Ближнем Востоке — 13,0%, прочие "
+         "страны — 1,4%. В 2011-м британская выручка стоит на месте (−0,5%) при заказах −10,6%: "
+         "держится на среднем чеке, £421 в 2010-м против £469 в 2011-м. Экспорт — наоборот: "
+         "заказов +19%, выручка на месте, чек упал с £894 до £756, то есть приходят мелкие "
+         "покупатели. Рост «прочих стран» в 2,7 раза (с £72 тыс. до £198 тыс.) — это три "
+         "австралийских инвойса на £61,4 тыс., 31% группы; называть это новым рынком нельзя.")
+
 # --------------------------------------------------------------- удержание
 with tab_retention:
     cohort = load_mart("cohort_retention")
@@ -361,6 +395,26 @@ with tab_method:
     dq = pd.read_parquet(cfg.DQ_LOG_FILE)
     st.dataframe(dq.rename(columns={"rule": "Правило", "rows": "Строк", "note": "Комментарий"}),
                  width="stretch", hide_index=True)
+
+    st.subheader("Что осталось в факте")
+    dq_sum = load_mart("data_quality")
+    if not dq_sum.empty:
+        r = dq_sum.iloc[0]
+        kpi_row([
+            ("Строк", f"{r.lines_total:,}", None),
+            ("Инвойсов", f"{r.invoices:,}", None),
+            ("Клиентов с id", f"{r.customers:,}", None),
+            ("Строк без клиента", f"{r.guest_lines:,}", None),
+            ("Отмен", f"{r.cancellation_lines:,}", None),
+            ("Возвратов", f"{r.return_lines:,}", None),
+            ("Нетоварных строк", f"{r.non_merchandise_lines:,}", None),
+            ("Оптовых строк", f"{r.bulk_lines:,}", None),
+        ], per_row=4)
+        note("Из 5 940 клиентов с заполненным id в RFM попадает 5 853: 64 встречаются только в "
+             "нетоварных строках, ещё 23 — в товарных, но только в отменах и возвратах. Из "
+             "235 150 строк без клиента товарных продаж 229 318 — это те самые 22,8% строк и "
+             "13,1% выручки. Описание пришлось восстанавливать заглушкой у 375 строк, страна не "
+             "указана у 752: в исходнике их было 756, четыре ушли вместе с дублями.")
     st.markdown(
         """
 Определения, которые важно не перепутать:
