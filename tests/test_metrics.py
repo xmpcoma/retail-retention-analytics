@@ -151,3 +151,20 @@ def test_top_products_share_never_exceeds_one(clean):
     assert t.revenue_share.sum() <= 1.0 + 1e-9
     assert t.iloc[0].stock_code == "x"
     assert t.iloc[0].revenue == pytest.approx(50.0)
+
+
+def test_region_monthly_groups_countries(clean):
+    """Границы групп рынков живут в config, поэтому проверка на фикстуре:
+    Ирландия — это экспорт, а не «прочая страна»; гость без customer_id
+    остаётся в выручке, но не в числе клиентов."""
+    framed = clean.assign(country=["United Kingdom", "Ireland", "Australia", "Unspecified",
+                                   "United Kingdom", "France"])
+    g = m.region_monthly(framed).set_index(["region", "month"])
+    uk = g.loc[("Великобритания", "2009-12")]
+    assert uk.revenue == pytest.approx(20.0) and uk.customers == 1
+    assert g.loc[("Экспорт: Европа и Ближний Восток", "2010-01")].revenue == pytest.approx(30.0)
+    assert g.loc[("Экспорт: прочие страны", "2009-12")].orders == 1
+    unspecified = g.loc[("Страна не указана", "2009-12")]
+    assert unspecified.revenue == pytest.approx(5.0) and unspecified.customers == 0
+    assert g.revenue.sum() == pytest.approx(65.0), "ни одна страна не должна потеряться"
+    assert m.region_monthly(clean.iloc[:0]).empty

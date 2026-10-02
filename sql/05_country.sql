@@ -31,11 +31,13 @@ SELECT
     ROUND(r.repeat_rate, 4) AS repeat_rate
 FROM all_sales a
 JOIN repeat_rate r USING (country)
-ORDER BY a.revenue DESC;
+ORDER BY a.revenue DESC, a.country;
 
 -- Группы рынков: по 41 стране вывод читается плохо, а вопрос «что нам даёт
--- экспорт» — один. Европа и Ближний Восток собраны списком вручную, остальные
--- записаны отдельной группой, чтобы не выдавать Австралию за Европу.
+-- экспорт» — один. Европа и Ближний Восток собраны списком, он подставляется
+-- из config.EXPORT_EU_ME (см. marts.py), чтобы pandas-метрика region_monthly
+-- и эта витрина делили одну границу. Остальные страны — отдельной группой,
+-- чтобы не выдавать Австралию за Европу.
 CREATE OR REPLACE TABLE region_stats AS
 WITH grouped AS (
     SELECT
@@ -43,11 +45,7 @@ WITH grouped AS (
             WHEN country = 'United Kingdom' THEN 'Великобритания'
             WHEN country = 'Unspecified' THEN 'Страна не указана'
             WHEN country IN (
-                'Germany', 'France', 'Spain', 'Italy', 'Netherlands', 'Belgium', 'Portugal',
-                'Sweden', 'Switzerland', 'Austria', 'Denmark', 'Finland', 'Norway', 'Ireland',
-                'Poland', 'Czech Republic', 'Greece', 'Cyprus', 'Malta', 'Hungary', 'Romania',
-                'Sardinia', 'European Community', 'United Arab Emirates', 'Saudi Arabia',
-                'Lebanon', 'Bahrain', 'Qatar', 'Oman', 'Israel', 'Channel Islands', 'Isle of Man'
+                {{EXPORT_COUNTRIES}}
             ) THEN 'Экспорт: Европа и Ближний Восток'
             ELSE 'Экспорт: прочие страны'
         END AS region,

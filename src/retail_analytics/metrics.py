@@ -14,6 +14,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from . import config as cfg
+
 LINE_SALE = "sale"
 LINE_REVERSAL = ("cancellation", "return")
 
@@ -154,6 +156,31 @@ def country_rollup(out: pd.DataFrame) -> pd.DataFrame:
         per = identified.groupby(["country", "customer_id"], observed=True).invoice_no.nunique()
         g["repeat_rate"] = (per > 1).groupby(level="country").mean()
     return g.reset_index()
+
+
+def region_monthly(out: pd.DataFrame) -> pd.DataFrame:
+    """Те же строки, что витрина region_stats, но на отфильтрованном срезе.
+
+    Список стран лежит в config, чтобы SQL и pandas не могли разойтись на
+    одной стране: 41 страна в подписи не читается, а группа «экспорт» —
+    читается.
+    """
+    s = sales(out)
+    if s.empty:
+        return pd.DataFrame(columns=["region", "month", "revenue", "orders", "customers"])
+    g = (
+        s.assign(region=s.country.map(cfg.region_of))
+        .groupby(["region", "month_start"], observed=True)
+        .agg(revenue=("line_revenue", "sum"), orders=("invoice_no", "nunique"),
+             customers=("customer_id", "nunique"))
+        .reset_index()
+    )
+    g["month"] = g.month_start.dt.strftime("%Y-%m")
+    return (
+        g[["region", "month", "revenue", "orders", "customers"]]
+        .sort_values(["region", "month"])
+        .reset_index(drop=True)
+    )
 
 
 def top_products(out: pd.DataFrame, limit: int = 25, by: str = "revenue") -> pd.DataFrame:

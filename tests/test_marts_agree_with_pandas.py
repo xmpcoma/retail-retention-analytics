@@ -79,6 +79,20 @@ def test_country_stats_shares_and_repeat_rates(fact):
     assert (sql.repeat_rate - py.repeat_rate).abs().max() < 1e-4
 
 
+def test_region_stats_matches_pandas(fact):
+    sql = mart("region_stats")
+    py = m.region_monthly(fact)
+    assert sorted(zip(sql.region, sql.month)) == sorted(zip(py.region, py.month))
+    a = sql.set_index(["region", "month"]).sort_index()
+    b = py.set_index(["region", "month"]).sort_index()
+    assert (a.revenue - b.revenue).abs().max() < 0.05
+    assert (a.orders - b.orders).abs().max() == 0
+    assert (a.customers - b.customers).abs().max() == 0
+    # группа «прочие» собрана по остатку, поэтому без потерь: иначе страна
+    # просто исчезла бы из вывода
+    assert sql.revenue.sum() == pytest.approx(fact.loc[fact.line_type == "sale", "line_revenue"].sum(), abs=0.05)
+
+
 def test_product_stats_matches_top_products(fact):
     sql = mart("product_stats").set_index("stock_code")
     py = m.top_products(fact, limit=len(sql)).set_index("stock_code")

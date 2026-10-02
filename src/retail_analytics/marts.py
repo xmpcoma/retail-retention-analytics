@@ -18,11 +18,22 @@ MARTS_DIR = cfg.CURATED_DIR / "marts"
 _TABLE_RE = re.compile(r"CREATE\s+OR\s+REPLACE\s+TABLE\s+(\w+)", re.IGNORECASE)
 
 
+def _sql_literals(values) -> str:
+    """Список строк для IN (...) — чтобы страна была задана в одном месте."""
+    return ",\n                ".join("'" + str(v).replace("'", "''") + "'" for v in sorted(values))
+
+
 def load_sql(con: duckdb.DuckDBPyConnection, fact_path: Path) -> list[str]:
     """Выполняет все sql-файлы по порядку имён и возвращает созданные таблицы."""
     tables: list[str] = []
+    subs = {
+        "{{FACT_PATH}}": fact_path.as_posix(),
+        "{{EXPORT_COUNTRIES}}": _sql_literals(cfg.EXPORT_EU_ME),
+    }
     for path in sorted(cfg.SQL_DIR.glob("*.sql")):
-        script = path.read_text(encoding="utf-8").replace("{{FACT_PATH}}", fact_path.as_posix())
+        script = path.read_text(encoding="utf-8")
+        for needle, value in subs.items():
+            script = script.replace(needle, value)
         tables += _TABLE_RE.findall(script)
         con.execute(script)
     return tables

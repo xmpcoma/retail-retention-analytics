@@ -61,6 +61,38 @@ BULK_QUANTITY = 20000
 # потерялась бы из карты как «ещё одна экзотическая страна».
 COUNTRY_MAP = {"EIRE": "Ireland"}
 
+# Группы рынков. Список держится здесь, а не только в sql/05_country.sql:
+# marts.py подставляет его вместо {{EXPORT_COUNTRIES}}, и pandas-метрика
+# считает по тем же строкам. Иначе витрина и метрика могли бы разойтись на
+# одной стране, а тест сверяет только суммы и этого бы не увидел.
+HOME_COUNTRY = "United Kingdom"
+UNSPECIFIED_COUNTRY = "Unspecified"
+REGION_LABELS = (
+    "Великобритания",
+    "Экспорт: Европа и Ближний Восток",
+    "Экспорт: прочие страны",
+    "Страна не указана",
+)
+EXPORT_EU_ME = {
+    "Germany", "France", "Spain", "Italy", "Netherlands", "Belgium", "Portugal",
+    "Sweden", "Switzerland", "Austria", "Denmark", "Finland", "Norway", "Ireland",
+    "Poland", "Czech Republic", "Greece", "Cyprus", "Malta", "Hungary", "Romania",
+    "Sardinia", "European Community", "United Arab Emirates", "Saudi Arabia",
+    "Lebanon", "Bahrain", "Qatar", "Oman", "Israel", "Channel Islands", "Isle of Man",
+}
+
+
+def region_of(country: str) -> str:
+    """Страна -> группа рынков. Остальные записаны «прочими», чтобы не выдавать
+    Австралию за Европу."""
+    if country == HOME_COUNTRY:
+        return REGION_LABELS[0]
+    if country == UNSPECIFIED_COUNTRY:
+        return REGION_LABELS[3]
+    if country in EXPORT_EU_ME:
+        return REGION_LABELS[1]
+    return REGION_LABELS[2]
+
 # Ключ, по которому строки считаются дублями. Description и CustomerID в
 # него не вошли: на всём датасете это две пары строк, где совпадают инвойс,
 # товар, дата, количество и цена, а описание написано по-разному
