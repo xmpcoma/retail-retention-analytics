@@ -25,3 +25,4 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["slow: пересобирает витрины из sql/ в DuckDB, работает дольше остальных"]

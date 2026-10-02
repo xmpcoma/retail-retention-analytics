@@ -56,7 +56,8 @@ SELECT
         WHEN r_score <= 2 THEN 'отток'
         ELSE 'прочее'
     END AS segment
-FROM scored;
+FROM scored
+ORDER BY customer_id;
 
 CREATE OR REPLACE TABLE rfm_segments AS
 WITH totals AS (SELECT SUM(monetary) AS total_revenue FROM rfm)
@@ -71,4 +72,4 @@ SELECT
     ROUND(AVG(recency_days), 0) AS avg_recency_days
 FROM rfm, totals t
 GROUP BY 1, t.total_revenue
-ORDER BY revenue DESC;
+ORDER BY revenue DESC, segment;

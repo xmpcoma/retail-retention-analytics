@@ -33,7 +33,7 @@ SELECT
 FROM all_lines
 WHERE line_type <> 'sale'
 GROUP BY 1, 2
-ORDER BY value;
+ORDER BY value, line_type, kind;
 
 CREATE OR REPLACE TABLE reversed_products AS
 SELECT
@@ -45,5 +45,5 @@ SELECT
 FROM all_lines
 WHERE line_type <> 'sale' AND is_merchandise
 GROUP BY 1
-ORDER BY reversal_value
+ORDER BY reversal_value, stock_code
 LIMIT 25;
